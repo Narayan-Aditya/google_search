@@ -81,6 +81,12 @@ button {
   margin: 0 0 6px;
 }
 
+.banner .detail {
+  font-size: 12px;
+  color: #5f4300;
+  word-break: break-word;
+}
+
 .status {
   margin-top: 10px;
 }

@@ -6,6 +6,7 @@ const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const resumeBtn = document.getElementById("resumeBtn");
 const captchaBanner = document.getElementById("captchaBanner");
+const pauseDetailEl = document.getElementById("pauseDetail");
 const statusLine = document.getElementById("statusLine");
 const totalsLine = document.getElementById("totalsLine");
 const logEl = document.getElementById("log");
@@ -43,7 +44,7 @@ const STATUS_LABELS = {
   idle: "Idle",
   stopped: "Stopped",
   done: "Done",
-  paused_captcha: "Paused — CAPTCHA detected",
+  paused_captcha: "Paused — needs attention",
 };
 
 function statusText(state) {
@@ -67,6 +68,7 @@ function render(state) {
   startBtn.disabled = running || paused;
   stopBtn.classList.toggle("hidden", !(running || paused));
   captchaBanner.classList.toggle("hidden", !paused);
+  if (paused) pauseDetailEl.textContent = state.lastEvent || "";
 
   statusLine.textContent = statusText(state);
   totalsLine.textContent = `Total handles: ${state.totals ? state.totals.handles : 0}`;

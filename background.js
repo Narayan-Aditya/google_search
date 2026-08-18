@@ -122,24 +122,27 @@ async function finishRun() {
   await setState({ status: "done", lastEvent: "All cities complete" });
 }
 
-async function enterCaptchaPause(reason) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// General "run needs attention" pause — used for CAPTCHA/block pages as well as
+// transient scrape failures (e.g. executeScript flaking on a long run). Resume
+// always re-navigates to the same (city, page) it paused on and retries.
+async function enterPause(reason, detail) {
   await chrome.alarms.clear(ALARM_NAME);
   chrome.action.setBadgeText({ text: "⏸" });
   chrome.action.setBadgeBackgroundColor({ color: "#d93025" });
-  const state = await setState({
-    status: "paused_captcha",
-    lastEvent: `CAPTCHA/block detected (${reason}) — solve it in the tab, then click Resume`,
-  });
-  notifyPaused(state);
-}
-
-function notifyPaused(state) {
-  const city = state.cities[state.cityIndex] || "";
+  const prior = await getState();
+  const city = prior.cities[prior.cityIndex] || "";
+  const message =
+    detail || `CAPTCHA/block detected (${reason}) on "${city}" p${prior.pageIndex + 1} — solve it in the tab, then click Resume`;
+  await setState({ status: "paused_captcha", lastEvent: message });
   chrome.notifications.create("captcha-pause", {
     type: "basic",
     iconUrl: chrome.runtime.getURL("icons/icon128.png"),
     title: "Insta Handle Finder — Paused",
-    message: `CAPTCHA/block on "${city}" (page ${state.pageIndex + 1}). Tab me solve karke Resume dabao.`,
+    message,
     priority: 2,
     requireInteraction: true,
   });
@@ -180,27 +183,46 @@ async function scheduleNextStep() {
 }
 
 async function scrapeCurrentPage(tabId, stepKey) {
+  const state = await getState();
+  const cityKey = state.cities[state.cityIndex];
+  const pageLabel = state.pageIndex + 1;
+
   let injectionResult;
-  try {
-    const injections = await chrome.scripting.executeScript({ target: { tabId }, files: ["content-scraper.js"] });
-    injectionResult = injections[0] && injections[0].result;
-  } catch (e) {
-    await setState({ status: "stopped", lastEvent: `Scrape error: ${e.message} — results preserved` });
+  let lastError = null;
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const injections = await chrome.scripting.executeScript({ target: { tabId }, files: ["content-scraper.js"] });
+      injectionResult = injections[0] && injections[0].result;
+      lastError = null;
+      break;
+    } catch (e) {
+      lastError = e;
+      if (attempt < MAX_ATTEMPTS) await sleep(1500 * attempt);
+    }
+  }
+
+  if (lastError) {
+    await enterPause(
+      "injection_failed",
+      `Couldn't run the scraper on "${cityKey}" p${pageLabel} after ${MAX_ATTEMPTS} tries (${lastError.message}). Check the tab, then click Resume to retry this page.`
+    );
     return;
   }
 
   if (!injectionResult) {
-    await setState({ status: "stopped", lastEvent: "Scrape returned no data — stopped. Press Start to retry." });
+    await enterPause(
+      "empty_result",
+      `No data back from "${cityKey}" p${pageLabel} — the page may not have finished loading. Click Resume to retry this page.`
+    );
     return;
   }
 
   if (injectionResult.blocked) {
-    await enterCaptchaPause(injectionResult.blockReason || "detected");
+    await enterPause(injectionResult.blockReason || "detected");
     return;
   }
 
-  const state = await getState();
-  const cityKey = state.cities[state.cityIndex];
   const seen = new Set(state.seenHandles);
   const cityResults = state.results[cityKey] ? [...state.results[cityKey]] : [];
 
@@ -257,7 +279,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
     const url = (tab.url || "").toLowerCase();
     if (url.includes("/sorry/")) {
-      await enterCaptchaPause("sorry_url");
+      await enterPause("sorry_url");
       return;
     }
 
