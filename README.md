@@ -103,7 +103,3 @@ reversible — **download your JSON before resetting** if you want to keep it.
 | `content-scraper.js` | Injected into the Google results tab — scrapes handles, detects CAPTCHA/block |
 | `popup/` | The side panel UI (HTML/CSS/JS), loaded via `side_panel.default_path` |
 | `icons/` | Toolbar/notification icons |
-
-`C:\projects\google_search\script.py` is the original Python prototype this
-extension was ported from — same handle-validation rules and block-detection
-logic, just driven from a real browser tab instead of a server-side fetch.
