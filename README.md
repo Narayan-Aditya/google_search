@@ -1,13 +1,5 @@
 # Insta Handle Finder (Google Search)
 
-A Chrome extension (Manifest V3) that runs `site:instagram.com "<city>"` Google
-searches for one or more cities, scrapes the result pages for public Instagram
-profile handles, and lets you download everything as a single JSON file.
-
-It drives one visible browser tab so you can watch progress. If Google shows a
-CAPTCHA/block page, the run **pauses** and waits for you to solve it manually —
-it never tries to auto-solve, use proxies, or evade detection.
-
 ## Setup
 
 1. Open `chrome://extensions` in Chrome.
