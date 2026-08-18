@@ -1,0 +1,128 @@
+body {
+  width: 320px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: 10px;
+  font-size: 13px;
+  color: #202124;
+}
+
+h1 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+label {
+  display: block;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+textarea,
+input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px;
+  margin-top: 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.row label {
+  margin: 0;
+  flex: 1;
+  font-weight: normal;
+}
+
+.row input {
+  width: 70px;
+  margin-top: 0;
+}
+
+.warning {
+  color: #b06000;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.hidden {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+button {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.banner {
+  margin-top: 10px;
+  padding: 8px;
+  background: #fef7e0;
+  border: 1px solid #f9ab00;
+  border-radius: 4px;
+}
+
+.banner p {
+  margin: 0 0 6px;
+}
+
+.status {
+  margin-top: 10px;
+}
+
+.status p {
+  margin: 2px 0;
+}
+
+#statusLine {
+  font-weight: 600;
+}
+
+#log {
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin: 8px 0;
+  font-size: 12px;
+  list-style: none;
+}
+
+#log li {
+  padding: 2px 0;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+#log li:last-child {
+  border-bottom: none;
+}
+
+#downloadBtn {
+  flex: 1;
+}
+
+.danger {
+  background: #fce8e6;
+  border: 1px solid #d93025;
+  color: #d93025;
+  border-radius: 4px;
+}
+
+.danger:hover {
+  background: #d93025;
+  color: #fff;
+}

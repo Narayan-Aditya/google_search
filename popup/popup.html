@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Insta Handle Finder</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <h1>Insta Handle Finder</h1>
+
+  <label for="cities">Cities (one per line)</label>
+  <textarea id="cities" rows="4" placeholder="lucknow&#10;kanpur&#10;varanasi"></textarea>
+
+  <div class="row">
+    <label for="maxPages">Max pages / city</label>
+    <input id="maxPages" type="number" min="1" max="50" value="3" />
+  </div>
+  <div class="row">
+    <label for="delaySec">Delay between pages (s)</label>
+    <input id="delaySec" type="number" min="5" value="10" />
+  </div>
+  <p id="delayWarning" class="warning hidden">Kam delay = jaldi CAPTCHA. 10s+ recommended.</p>
+
+  <div class="actions">
+    <button id="startBtn">Start</button>
+    <button id="stopBtn" class="hidden">Stop run</button>
+  </div>
+
+  <div id="captchaBanner" class="banner hidden">
+    <p>Google ne CAPTCHA dikhaya hai. Tab me jaake solve karo, phir Resume dabao.</p>
+    <button id="resumeBtn">Resume</button>
+  </div>
+
+  <div class="status">
+    <p id="statusLine">Idle</p>
+    <p id="totalsLine">Total handles: 0</p>
+  </div>
+
+  <ul id="log"></ul>
+
+  <div class="actions">
+    <button id="downloadBtn" disabled>Download JSON</button>
+    <button id="resetBtn" class="danger">Reset</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
