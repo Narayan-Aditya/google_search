@@ -151,17 +151,6 @@ chrome.notifications.onClicked.addListener((notificationId) => {
   })();
 });
 
-async function advanceToNextCity() {
-  const state = await getState();
-  const nextCityIndex = state.cityIndex + 1;
-  if (nextCityIndex >= state.cities.length) {
-    await finishRun();
-    return;
-  }
-  await setState({ cityIndex: nextCityIndex, pageIndex: 0, status: "waiting_delay" });
-  scheduleAlarm(state.delaySec * 1.5);
-}
-
 async function scheduleNextStep() {
   const state = await getState();
   let { cityIndex, pageIndex } = state;
@@ -221,11 +210,7 @@ async function scrapeCurrentPage(tabId, stepKey) {
     lastEvent: `"${cityKey}" p${state.pageIndex + 1}: ${newCount} new handle(s)`,
   });
 
-  if (newCount === 0) {
-    await advanceToNextCity();
-  } else {
-    await scheduleNextStep();
-  }
+  await scheduleNextStep();
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
