@@ -1,5 +1,7 @@
 body {
-  width: 320px;
+  width: 100%;
+  min-width: 280px;
+  box-sizing: border-box;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   padding: 10px;
   font-size: 13px;

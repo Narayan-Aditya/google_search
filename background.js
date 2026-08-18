@@ -6,6 +6,11 @@
 
 const ALARM_NAME = "nextPage";
 
+// Makes the toolbar icon open the persistent side panel (popup/popup.html) instead
+// of a dropdown popup — the side panel lives outside the tab's page DOM, so unlike
+// an injected iframe it survives page navigation without reloading.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
 function defaultState() {
   return {
     status: "idle", // idle | running | waiting_delay | paused_captcha | stopped | done
@@ -61,6 +66,11 @@ async function startRun(msg) {
 
   const cities = msg.cities;
   const tab = await chrome.tabs.create({ url: searchUrl(cities[0], 0), active: true });
+  try {
+    await chrome.sidePanel.open({ tabId: tab.id });
+  } catch (e) {
+    // panel may already be open, or the user-gesture window expired — non-fatal
+  }
 
   const state = {
     ...defaultState(),
