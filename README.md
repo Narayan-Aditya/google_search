@@ -27,6 +27,27 @@ Whenever you (or I) change any of the extension's files, come back to
 `chrome://extensions` and click the reload icon (🔄) on the extension's card
 to pick up the changes.
 
+### Permissions it asks for, and why
+
+Chrome shows these on the extension's card. Nothing here talks to a server that
+isn't Google or Instagram — there is no backend, no telemetry, no account.
+
+| Permission | Why it is needed |
+|---|---|
+| `tabs`, `scripting` | Open and drive the one working tab, and inject the scraper into it |
+| `storage`, `unlimitedStorage` | Keep run state and collected posts across restarts; a 16k-post account exceeds the default 10 MB quota |
+| `alarms` | Pace the run in a way that survives the service worker being shut down |
+| `notifications` | Tell you when a run pauses and needs you |
+| `sidePanel` | The UI itself |
+| `downloads` | Save `<handle>.json` |
+| `offscreen` | A service worker can't create a blob URL, so a hidden page does it |
+| `https://www.google.com/*` | Mode 1 — read search results |
+| `https://www.instagram.com/*`, `https://instagram.com/*`, `https://i.instagram.com/*` | Mode 2 — open the profile and read its data as your logged-in session |
+
+> After adding the Instagram host permission, Chrome may show the extension as
+> needing re-enabling on the `chrome://extensions` card the first time. Toggle it
+> off and on if mode 2 does nothing at all.
+
 ---
 
 ## Mode 1 — Google handles
@@ -241,6 +262,36 @@ account you don't follow gets a profile-only file and the run moves on, and a
   point, without disturbing the run.
 - **Reset** clears the Instagram run's collected data and stored pages. Files
   already downloaded are untouched.
+
+---
+
+## Troubleshooting
+
+**Where to look first.** `chrome://extensions` → the extension's card →
+**Service worker** → *Inspect*. That console is where both background scripts
+log. The side panel's own log (last 20 events) is the quicker read for
+"what just happened".
+
+| Symptom | What it usually means |
+|---|---|
+| Mode 2 does nothing, no tab opens | Every line you pasted was rejected. The log says how many were skipped — check for post/reel links. |
+| Pauses immediately with `401` | Not logged into instagram.com in this Chrome profile. |
+| Pauses on the first page with "API badli" | Instagram changed its endpoints — see below. |
+| The page never scrolls | **Expected.** Mode 2 calls Instagram's JSON endpoints directly instead of scrolling. Scrolling only happens in the last-resort DOM fallback. |
+| File downloaded but `posts` is short | Check `complete` and `incomplete_reason` in the JSON — it will say `capped`, `private`, or which pause stopped it. |
+
+**If Instagram changes its API.** These endpoints are undocumented and rotate.
+When all three fallbacks fail, find the current one yourself:
+
+1. Open a profile in a normal tab with DevTools → **Network** → filter `XHR`.
+2. Scroll the post grid. The request that returns the next batch of posts is the
+   one to copy — note its path and its request headers.
+3. Update the constants at the top of `content-ig-fetch.js`
+   (`PROFILE_PATH`, `FEED_PATH`, `GRAPHQL_HASHES`, `FALLBACK_APP_ID`) and reload
+   the extension.
+
+They are deliberately kept together at the top of that file so this stays a
+one-line fix rather than a rewrite.
 
 ---
 
