@@ -5,45 +5,107 @@
   <title>Insta Handle Finder</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
-<body>
+<body class="mode-google">
   <h1>Insta Handle Finder</h1>
 
-  <label for="cities">Cities (one per line)</label>
-  <textarea id="cities" rows="4" placeholder="lucknow&#10;kanpur&#10;varanasi"></textarea>
-
-  <div class="row">
-    <label for="maxPages">Max pages / city</label>
-    <input id="maxPages" type="number" min="1" max="50" value="3" />
-  </div>
-  <div class="row">
-    <label for="delaySec">Delay between pages (s)</label>
-    <input id="delaySec" type="number" min="5" value="10" />
-  </div>
-  <p id="delayWarning" class="warning hidden">Kam delay = jaldi CAPTCHA. 10s+ recommended.</p>
-
-  <div class="actions">
-    <button id="startBtn">Start</button>
-    <button id="stopBtn" class="hidden">Stop run</button>
+  <div class="modes">
+    <button id="modeGoogleBtn" class="mode-btn" data-mode="google">
+      Google handles <span id="googleModeDot" class="mode-dot hidden"></span>
+    </button>
+    <button id="modeProfilesBtn" class="mode-btn" data-mode="profiles">
+      Instagram profiles <span id="profileModeDot" class="mode-dot hidden"></span>
+    </button>
   </div>
 
-  <div id="captchaBanner" class="banner hidden">
-    <p>Run pause ho gaya hai — neeche wajah dekho, phir Resume dabao.</p>
-    <p id="pauseDetail" class="detail"></p>
-    <button id="resumeBtn">Resume</button>
-  </div>
+  <!-- ============================ Google handle finder ============================ -->
+  <section id="googleSection">
+    <label for="cities">Cities (one per line)</label>
+    <textarea id="cities" rows="4" placeholder="lucknow&#10;kanpur&#10;varanasi"></textarea>
 
-  <div class="status">
-    <p id="statusLine">Idle</p>
-    <p id="totalsLine">Total handles: 0</p>
-  </div>
+    <div class="row">
+      <label for="maxPages">Max pages / city</label>
+      <input id="maxPages" type="number" min="1" max="50" value="3" />
+    </div>
+    <div class="row">
+      <label for="delaySec">Delay between pages (s)</label>
+      <input id="delaySec" type="number" min="5" value="10" />
+    </div>
+    <p id="delayWarning" class="warning hidden">Kam delay = jaldi CAPTCHA. 10s+ recommended.</p>
 
-  <ul id="log"></ul>
+    <div class="actions">
+      <button id="startBtn">Start</button>
+      <button id="stopBtn" class="hidden">Stop run</button>
+    </div>
 
-  <div class="actions">
-    <button id="downloadBtn" disabled>Download JSON</button>
-    <button id="resetBtn" class="danger">Reset</button>
-  </div>
+    <div id="captchaBanner" class="banner hidden">
+      <p>Run pause ho gaya hai — neeche wajah dekho, phir Resume dabao.</p>
+      <p id="pauseDetail" class="detail"></p>
+      <button id="resumeBtn">Resume</button>
+    </div>
+
+    <div class="status">
+      <p id="statusLine">Idle</p>
+      <p id="totalsLine">Total handles: 0</p>
+    </div>
+
+    <ul id="log"></ul>
+
+    <div class="actions">
+      <button id="downloadBtn" disabled>Download JSON</button>
+      <button id="resetBtn" class="danger">Reset</button>
+    </div>
+  </section>
+
+  <!-- ========================= Instagram profile exporter ========================= -->
+  <section id="profileSection">
+    <label for="igAccounts">Instagram profile URLs ya handles (ek per line)</label>
+    <textarea
+      id="igAccounts"
+      rows="4"
+      placeholder="https://www.instagram.com/natgeo/&#10;@nasa&#10;bbcnews"
+    ></textarea>
+    <p class="hint">Sirf profile URL chalega — post/reel/explore links skip ho jayenge.</p>
+
+    <div class="row">
+      <label for="igPageDelay">Delay between pages (s)</label>
+      <input id="igPageDelay" type="number" min="2" value="3" />
+    </div>
+    <div class="row">
+      <label for="igAccountDelay">Delay between accounts (s)</label>
+      <input id="igAccountDelay" type="number" min="3" value="8" />
+    </div>
+    <p id="igDelayWarning" class="warning hidden">Kam delay = jaldi rate-limit. 3s+ theek hai.</p>
+
+    <div class="actions">
+      <button id="igStartBtn">Start</button>
+      <button id="igStopBtn" class="hidden">Stop run</button>
+    </div>
+
+    <div id="igPauseBanner" class="banner hidden">
+      <p>Run pause ho gaya hai — neeche wajah dekho, phir Resume dabao.</p>
+      <p id="igPauseDetail" class="detail"></p>
+      <button id="igResumeBtn">Resume</button>
+    </div>
+
+    <div class="status">
+      <p id="igStatusLine">Idle</p>
+      <p id="igTotalsLine">Accounts: 0/0 &middot; posts: 0</p>
+    </div>
+
+    <ul id="igCompleted" class="completed hidden"></ul>
+    <ul id="igLog"></ul>
+
+    <div class="actions">
+      <button id="igDownloadBtn" disabled>Download partial</button>
+      <button id="igResetBtn" class="danger">Reset</button>
+    </div>
+    <p class="hint">
+      Har account complete hote hi uska <code>&lt;handle&gt;.json</code> apne aap download ho
+      jata hai — side panel band ho tab bhi.
+    </p>
+  </section>
 
   <script src="popup.js"></script>
+  <script src="popup-profiles.js"></script>
 </body>
 </html>

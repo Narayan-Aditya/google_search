@@ -1,10 +1,25 @@
 {
   "manifest_version": 3,
   "name": "Insta Handle Finder (Google Search)",
-  "version": "1.0.0",
-  "description": "Multi-city site:instagram.com Google search — collects public profile handles, exports JSON. Pauses on CAPTCHA; never evades.",
-  "permissions": ["tabs", "scripting", "storage", "alarms", "notifications", "sidePanel"],
-  "host_permissions": ["https://www.google.com/*"],
+  "version": "1.1.0",
+  "description": "Multi-city site:instagram.com Google search for public handles, plus a full profile + posts exporter. Pauses on CAPTCHA/rate-limit; never evades.",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage",
+    "alarms",
+    "notifications",
+    "sidePanel",
+    "offscreen",
+    "downloads",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "https://www.google.com/*",
+    "https://www.instagram.com/*",
+    "https://instagram.com/*",
+    "https://i.instagram.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },

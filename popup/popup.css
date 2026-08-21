@@ -99,7 +99,8 @@ button {
   font-weight: 600;
 }
 
-#log {
+#log,
+#igLog {
   max-height: 120px;
   overflow-y: auto;
   border: 1px solid #ddd;
@@ -110,16 +111,19 @@ button {
   list-style: none;
 }
 
-#log li {
+#log li,
+#igLog li {
   padding: 2px 0;
   border-bottom: 1px solid #f1f1f1;
 }
 
-#log li:last-child {
+#log li:last-child,
+#igLog li:last-child {
   border-bottom: none;
 }
 
-#downloadBtn {
+#downloadBtn,
+#igDownloadBtn {
   flex: 1;
 }
 
@@ -133,4 +137,91 @@ button {
 .danger:hover {
   background: #d93025;
   color: #fff;
+}
+
+/* ------------------------------- mode switcher ------------------------------- */
+
+.modes {
+  display: flex;
+  gap: 0;
+  margin-bottom: 4px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border: none;
+  background: #f1f3f4;
+  font-family: inherit;
+  font-size: 12px;
+  color: #5f6368;
+}
+
+.mode-btn.active {
+  background: #fff;
+  color: #202124;
+  font-weight: 600;
+}
+
+/* A run in the other mode stays visible even while its section is hidden, so
+   switching tabs never buries an active job. */
+.mode-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: #1a73e8;
+}
+
+.mode-dot.paused {
+  background: #d93025;
+}
+
+body.mode-google #profileSection,
+body.mode-profiles #googleSection {
+  display: none;
+}
+
+.hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #5f6368;
+}
+
+.hint code {
+  font-size: 11px;
+}
+
+/* ------------------------------ completed list ------------------------------ */
+
+.completed {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 4px 8px;
+  max-height: 90px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.completed li {
+  padding: 2px 0;
+}
+
+.completed li.ok {
+  color: #188038;
+}
+
+.completed li.warn {
+  color: #b06000;
+}
+
+.completed li.bad {
+  color: #d93025;
 }

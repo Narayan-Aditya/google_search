@@ -4,6 +4,11 @@
 // auto-retry on a block, or run hidden/parallel tabs. On a CAPTCHA/block the run
 // pauses and waits for the user to solve it manually, mirroring script.py's stance.
 
+// The Instagram profile/posts exporter is a second, independent job runner. It
+// shares this service worker but keeps its own storage key, tab, alarms and
+// message namespace, so neither feature can corrupt the other's run.
+importScripts("background-profiles.js");
+
 const ALARM_NAME = "nextPage";
 
 // Makes the toolbar icon open the persistent side panel (popup/popup.html) instead
@@ -245,7 +250,14 @@ async function scrapeCurrentPage(tabId, stepKey) {
   await scheduleNextStep();
 }
 
+// Only the Google run's own messages. Without this guard the listener would answer
+// every message on the bus — including the Instagram exporter's — and race
+// background-profiles.js for the reply.
+const GOOGLE_MESSAGE_TYPES = new Set(["GET_STATE", "START_RUN", "RESUME_RUN", "STOP_RUN", "RESET_RUN"]);
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (!msg || !GOOGLE_MESSAGE_TYPES.has(msg.type)) return false;
+
   (async () => {
     switch (msg.type) {
       case "START_RUN":
