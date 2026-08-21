@@ -15,6 +15,9 @@
     <button id="modeProfilesBtn" class="mode-btn" data-mode="profiles">
       Instagram profiles <span id="profileModeDot" class="mode-dot hidden"></span>
     </button>
+    <button id="modeYoutubeBtn" class="mode-btn" data-mode="youtube">
+      YouTube channels <span id="youtubeModeDot" class="mode-dot hidden"></span>
+    </button>
   </div>
 
   <!-- ============================ Google handle finder ============================ -->
@@ -105,7 +108,69 @@
     </p>
   </section>
 
+  <!-- ========================== YouTube channel exporter ========================== -->
+  <section id="youtubeSection">
+    <label for="ytChannels">YouTube channel URLs ya @handles (ek per line)</label>
+    <textarea
+      id="ytChannels"
+      rows="4"
+      placeholder="https://www.youtube.com/@mkbhd&#10;@NASA&#10;https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ"
+    ></textarea>
+    <p class="hint">Sirf channel URL chalega — video/playlist links skip ho jayenge.</p>
+
+    <div class="row">
+      <label for="ytPageDelay">Delay between pages (s)</label>
+      <input id="ytPageDelay" type="number" min="2" value="3" />
+    </div>
+    <div class="row">
+      <label for="ytChannelDelay">Delay between channels (s)</label>
+      <input id="ytChannelDelay" type="number" min="3" value="8" />
+    </div>
+    <div class="row">
+      <label for="ytVideoDelay">Delay between videos (ms)</label>
+      <input id="ytVideoDelay" type="number" min="200" step="100" value="700" />
+    </div>
+    <div class="row check">
+      <input id="ytFullDetails" type="checkbox" checked />
+      <label for="ytFullDetails">Har video ki full details (likes, comments, description)</label>
+    </div>
+    <p class="hint">
+      Details off karoge to sirf listing data aayega (url, title, thumbnail, approx views) —
+      bahut tez, par like/comment/description null rahenge.
+    </p>
+    <p id="ytDelayWarning" class="warning hidden">Kam delay = jaldi rate-limit. 3s+ theek hai.</p>
+
+    <div class="actions">
+      <button id="ytStartBtn">Start</button>
+      <button id="ytStopBtn" class="hidden">Stop run</button>
+    </div>
+
+    <div id="ytPauseBanner" class="banner hidden">
+      <p>Run pause ho gaya hai — neeche wajah dekho, phir Resume dabao.</p>
+      <p id="ytPauseDetail" class="detail"></p>
+      <button id="ytResumeBtn">Resume</button>
+    </div>
+
+    <div class="status">
+      <p id="ytStatusLine">Idle</p>
+      <p id="ytTotalsLine">Channels: 0/0 &middot; videos: 0</p>
+    </div>
+
+    <ul id="ytCompleted" class="completed hidden"></ul>
+    <ul id="ytLog"></ul>
+
+    <div class="actions">
+      <button id="ytDownloadBtn" disabled>Download partial</button>
+      <button id="ytResetBtn" class="danger">Reset</button>
+    </div>
+    <p class="hint">
+      Har channel complete hote hi uska <code>&lt;handle&gt;.json</code> apne aap download ho
+      jata hai — side panel band ho tab bhi.
+    </p>
+  </section>
+
   <script src="popup.js"></script>
   <script src="popup-profiles.js"></script>
+  <script src="popup-youtube.js"></script>
 </body>
 </html>

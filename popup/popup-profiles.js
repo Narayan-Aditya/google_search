@@ -21,10 +21,17 @@
   const downloadBtn = document.getElementById("igDownloadBtn");
   const resetBtn = document.getElementById("igResetBtn");
 
-  const modeGoogleBtn = document.getElementById("modeGoogleBtn");
-  const modeProfilesBtn = document.getElementById("modeProfilesBtn");
+  // The mode switcher is shared UI and lives here, because this file was the one that
+  // introduced it. Each feature still renders only its own dot.
+  const MODES = ["google", "profiles", "youtube"];
+  const modeButtons = {
+    google: document.getElementById("modeGoogleBtn"),
+    profiles: document.getElementById("modeProfilesBtn"),
+    youtube: document.getElementById("modeYoutubeBtn"),
+  };
   const googleDot = document.getElementById("googleModeDot");
   const profileDot = document.getElementById("profileModeDot");
+  const youtubeDot = document.getElementById("youtubeModeDot");
 
   let accountsEdited = false;
   let settingsEdited = false;
@@ -224,11 +231,11 @@
   // ---------------------------------------------------------------------- mode switcher
 
   function applyMode(mode) {
-    const profiles = mode === "profiles";
-    document.body.classList.toggle("mode-profiles", profiles);
-    document.body.classList.toggle("mode-google", !profiles);
-    modeProfilesBtn.classList.toggle("active", profiles);
-    modeGoogleBtn.classList.toggle("active", !profiles);
+    const active = MODES.includes(mode) ? mode : "google";
+    for (const name of MODES) {
+      document.body.classList.toggle("mode-" + name, name === active);
+      modeButtons[name].classList.toggle("active", name === active);
+    }
   }
 
   function setMode(mode) {
@@ -244,8 +251,9 @@
     dot.classList.toggle("paused", status === "paused");
   }
 
-  modeGoogleBtn.addEventListener("click", () => setMode("google"));
-  modeProfilesBtn.addEventListener("click", () => setMode("profiles"));
+  for (const name of MODES) {
+    modeButtons[name].addEventListener("click", () => setMode(name));
+  }
 
   // --------------------------------------------------------------------------- actions
 
@@ -322,16 +330,21 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (changes.profileRunState) render(changes.profileRunState.newValue);
-    // The Google feature's state drives its dot; popup.js owns everything else about it.
+    // The other two features own their sections; only their tab dots are drawn here, so
+    // an active run stays visible while its section is hidden.
     if (changes.runState && changes.runState.newValue) {
       renderModeDot(googleDot, changes.runState.newValue.status);
+    }
+    if (changes.youtubeRunState && changes.youtubeRunState.newValue) {
+      renderModeDot(youtubeDot, changes.youtubeRunState.newValue.status);
     }
   });
 
   (async function init() {
-    const stored = await chrome.storage.local.get(["uiMode", "runState"]);
-    applyMode(stored.uiMode === "profiles" ? "profiles" : "google");
+    const stored = await chrome.storage.local.get(["uiMode", "runState", "youtubeRunState"]);
+    applyMode(stored.uiMode);
     if (stored.runState) renderModeDot(googleDot, stored.runState.status);
+    if (stored.youtubeRunState) renderModeDot(youtubeDot, stored.youtubeRunState.status);
     render(await send({ type: "PROFILE_GET_STATE" }));
   })();
 })();

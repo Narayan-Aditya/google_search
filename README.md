@@ -1,11 +1,12 @@
 # Insta Handle Finder
 
-Two tools in one side panel, switched with the tabs at the top:
+Three tools in one side panel, switched with the tabs at the top:
 
 | Mode | What it does |
 |---|---|
 | **Google handles** | Walks `site:instagram.com "<city>"` Google results and collects public profile handles. |
 | **Instagram profiles** | Takes profile URLs/handles and exports each account's full profile + every post to `<handle>.json`. |
+| **YouTube channels** | Takes channel URLs/@handles and exports each channel's full profile + every video to `<handle>.json`. |
 
 They are independent — separate runs, separate tabs, separate saved state — so
 the natural workflow is to find handles in the first mode and feed them into the
@@ -43,10 +44,11 @@ isn't Google or Instagram — there is no backend, no telemetry, no account.
 | `offscreen` | A service worker can't create a blob URL, so a hidden page does it |
 | `https://www.google.com/*` | Mode 1 — read search results |
 | `https://www.instagram.com/*`, `https://instagram.com/*`, `https://i.instagram.com/*` | Mode 2 — open the profile and read its data as your logged-in session |
+| `https://www.youtube.com/*`, `https://youtube.com/*`, `https://m.youtube.com/*` | Mode 3 — open the channel and read its data as your logged-in session |
 
-> After adding the Instagram host permission, Chrome may show the extension as
-> needing re-enabling on the `chrome://extensions` card the first time. Toggle it
-> off and on if mode 2 does nothing at all.
+> After adding a new host permission, Chrome may show the extension as needing
+> re-enabling on the `chrome://extensions` card the first time. Toggle it off and
+> on if a mode does nothing at all.
 
 ---
 
@@ -265,10 +267,182 @@ account you don't follow gets a profile-only file and the run moves on, and a
 
 ---
 
+## Mode 3 — YouTube channels (full profile + all videos)
+
+Same shape as mode 2, pointed at YouTube. You give it channels, it gives you one
+`<handle>.json` per channel containing the channel's profile and every video it
+publishes — long-form, Shorts and past live streams.
+
+### How to use it
+
+1. Log into YouTube in this Chrome profile (not strictly required for public
+   channels, but a logged-out session hits walls sooner).
+2. Open the side panel, switch to the **YouTube channels** tab.
+3. Paste channels, one per line. All of these work:
+
+   ```
+   https://www.youtube.com/@mkbhd
+   https://www.youtube.com/@mkbhd/videos
+   @NASA
+   mkbhd
+   https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ
+   https://www.youtube.com/c/SomeOldChannel
+   https://www.youtube.com/user/SomeOldUser
+   ```
+
+   Video, Shorts-video, playlist and search links are **rejected** — the panel
+   tells you how many lines it skipped before it starts.
+4. Set the delays. Defaults are 3 s between listing pages, 8 s between channels,
+   700 ms between videos.
+5. **Full video details** (on by default) is the important switch — see below.
+6. **Start**. A tab opens on the first channel and works through it.
+
+### The details switch
+
+The channel listing only carries cheap fields: url, title, thumbnail, a rounded
+view count ("1.2M views"), duration and "2 days ago". **Like count, comment
+count, exact view count and the full description do not exist in the listing** —
+each one needs its own request per video.
+
+| Details | What you get | Cost |
+|---|---|---|
+| **On** (default) | Every field, exact view counts, full description | ~1 request per video — a 1,000-video channel takes roughly 20 minutes |
+| **Off** | url, title, thumbnail, approximate views, duration, published-ago | One request per ~30 videos — minutes for the same channel |
+
+With details off, `like_count`, `comment_count` and `description` are `null` and
+`details_source` is `null`, so a thin file is always self-describing rather than
+looking like a channel with zero likes.
+
+### When it pauses
+
+Same stance as the other modes: every wall becomes a resumable pause with a
+notification, never a silent failure and never a retry storm.
+
+| Reason | What to do |
+|---|---|
+| `login_wall` | Log into YouTube in that tab, then **Resume** |
+| `consent_wall` | Accept YouTube's cookie consent in that tab, then **Resume** |
+| `bot_check` | YouTube asked you to confirm you're not a bot — clear it in the tab, then **Resume** (cool-down applies) |
+| `rate_limit` | Wait out the cool-down on the Resume button, then **Resume** |
+| `forbidden` / `network` | Wait a bit, check the connection, **Resume** |
+| `endpoint_shape` | YouTube changed its layout — see Troubleshooting |
+
+Resume picks up from the exact continuation token and the exact channel tab it
+was inside, so nothing is re-crawled. A channel that does not exist is skipped
+rather than pausing the whole queue.
+
+### Output format — `<handle>.json`
+
+Deliberately the same envelope as mode 2, with `videos` where that one has
+`posts`:
+
+```json
+{
+  "handle": "@mkbhd",
+  "profile_url": "https://www.youtube.com/@mkbhd",
+  "fetched_at": "2026-08-22T12:00:00.000Z",
+  "source": "browse+browse_continuation",
+  "complete": true,
+  "incomplete_reason": null,
+  "details_enabled": true,
+  "profile": {
+    "channel_id": "UCBJycsmduvYEL83R_U4JriQ",
+    "handle": "@mkbhd",
+    "title": "Marques Brownlee",
+    "description": "...",
+    "canonical_url": "https://www.youtube.com/@mkbhd",
+    "subscriber_count": 20300000,
+    "subscriber_count_text": "20.3M subscribers",
+    "subscriber_count_exact": false,
+    "video_count": 1703,
+    "video_count_text": "1,703 videos",
+    "view_count": 4459442510,
+    "view_count_text": "4,459,442,510 views",
+    "joined_date": "Joined Mar 21, 2008",
+    "country": "United States",
+    "keywords": ["tech reviews", "smartphones"],
+    "is_verified": true,
+    "is_family_safe": true,
+    "avatar_url": "https://...",
+    "avatars": [{ "url": "https://...", "width": 900, "height": 900 }],
+    "banner_url": "https://...",
+    "links": [{ "title": "Twitter", "display": "twitter.com/MKBHD", "url": "https://twitter.com/MKBHD" }]
+  },
+  "videos_count_reported": 1703,
+  "videos_collected": 1703,
+  "videos": [
+    {
+      "id": "dQw4w9WgXcQ",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "kind": "video",
+      "is_short": false,
+      "title": "...",
+      "description": "full description
+with line breaks",
+      "thumbnail_url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+      "thumbnails": [{ "url": "https://...", "width": 1280, "height": 720 }],
+      "view_count": 1234567,
+      "view_count_text": "1,234,567 views",
+      "view_count_exact": true,
+      "like_count": 34567,
+      "comment_count": 2345,
+      "published_text": "2 days ago",
+      "published_date_text": "Jan 5, 2024",
+      "published_at": "2024-01-05T00:00:00.000Z",
+      "duration_text": "12:34",
+      "duration_seconds": 754,
+      "is_live_now": false,
+      "live_viewers": null,
+      "details_source": "next",
+      "details_error": null
+    }
+  ]
+}
+```
+
+- **`kind`** is `video`, `short` or `live` — the three channel tabs are crawled
+  in that order into one list, deduped by id (a past stream can appear twice).
+- **`view_count_exact`** tells you whether the number is YouTube's exact figure
+  or its rounded "1.2M". With details on it is exact; with details off it is not.
+- **`details_source`** is `next` (or `next+player`) for an enriched video and
+  `null` for one that was never enriched; `details_error` says why a single
+  video could not be read (removed, private, age-gated) without failing the run.
+- **`subscriber_count`** is parsed from YouTube's own rounded text — YouTube
+  itself does not publish an exact subscriber number any more, hence
+  `subscriber_count_exact: false`.
+- **`comment_count` is the number, not the comments** — same reasoning as mode 2.
+- **A stream that is live right now** reports watchers, not views, in the same field —
+  those land in `live_viewers` with `is_live_now: true`, and `view_count` stays null
+  rather than being quietly understated.
+- **A count YouTube writes in a form the parser cannot trust becomes `null`**, never a
+  guess; the raw string is always kept alongside in the matching `*_text` field.
+- **Thumbnail URLs are links, not files.** Nothing is downloaded except the JSON.
+
+### Good to know / limits
+
+- **Nothing is evaded.** It calls YouTube's own InnerTube endpoints from your own
+  logged-in tab with the page's own client identity — no proxies, no spoofed
+  user-agent, no hidden parallel tabs, no bot-check solving.
+- **Requests ask for English labels** (`hl=en`, region left alone). Every count YouTube
+  ships is a *string*, and separator rules differ per language — a German
+  "1,2 Mio. Aufrufe" cannot be read without guessing. The channel profile is fetched
+  through that same English request rather than scraped off the rendered page.
+- **The InnerTube API is undocumented and changes.** Every field is located by
+  key rather than by a fixed path, so a renamed wrapper does not break the crawl;
+  a renamed *field* becomes `null` rather than a crash. The endpoint constants
+  and channel-tab `params` live at the top of `content-yt-fetch.js`.
+- **Hard cap of 500 pages** (~15k videos) per channel as a runaway guard, same as
+  mode 2 — reported in the log and marked `complete: false`.
+- **Progress survives a sleeping service worker.** The paging loop runs in the
+  page itself and every page is persisted.
+- **Download partial** and **Reset** behave exactly as in mode 2.
+
+---
+
 ## Troubleshooting
 
 **Where to look first.** `chrome://extensions` → the extension's card →
-**Service worker** → *Inspect*. That console is where both background scripts
+**Service worker** → *Inspect*. That console is where all three background scripts
 log. The side panel's own log (last 20 events) is the quicker read for
 "what just happened".
 
@@ -279,6 +453,9 @@ log. The side panel's own log (last 20 events) is the quicker read for
 | Pauses on the first page with "API badli" | Instagram changed its endpoints — see below. |
 | The page never scrolls | **Expected.** Mode 2 calls Instagram's JSON endpoints directly instead of scrolling. Scrolling only happens in the last-resort DOM fallback. |
 | File downloaded but `posts` is short | Check `complete` and `incomplete_reason` in the JSON — it will say `capped`, `private`, or which pause stopped it. |
+| Mode 3 is very slow | Expected with details on — one extra request per video. Turn the details checkbox off for a listing-only run, or lower the per-video delay. |
+| Mode 3 videos have `null` likes/comments | Either details were off, or that video's `details_error` says why (removed, private, age-gated). |
+| Mode 3 pauses with "consent page" | YouTube showed its cookie consent interstitial. Accept it in that tab, then Resume. |
 
 **If Instagram changes its API.** These endpoints are undocumented and rotate.
 When all three fallbacks fail, find the current one yourself:
@@ -293,6 +470,18 @@ When all three fallbacks fail, find the current one yourself:
 They are deliberately kept together at the top of that file so this stays a
 one-line fix rather than a rewrite.
 
+**If YouTube changes its layout.** Mode 3 looks every field up *by key* rather
+than by a fixed path, so a renamed wrapper is survivable and a renamed field
+degrades to `null` instead of crashing. When something genuinely breaks:
+
+1. Open a channel's Videos tab with DevTools → **Network** → filter `Fetch/XHR`.
+2. Scroll the grid. The `/youtubei/v1/browse` request that returns the next batch
+   is the one to compare against — check its `params` (the channel-tab constant)
+   and the renderer key the videos arrive under.
+3. Update `CHANNEL_TABS` / `VIDEO_KEYS` at the top of `content-yt-fetch.js`, or the
+   key names in `extractLikeCount` / `extractCommentCount` / `extractDescription`
+   for a details-pass break, and reload the extension.
+
 ---
 
 ## Files
@@ -304,6 +493,8 @@ one-line fix rather than a rewrite.
 | `content-scraper.js` | Injected into the Google results tab — scrapes handles, detects CAPTCHA/block |
 | `background-profiles.js` | Service worker — orchestrates the Instagram account queue, persists pages, writes the files |
 | `content-ig-fetch.js` | Injected into the Instagram tab — fetches the profile and pages through every post |
+| `background-youtube.js` | Service worker — orchestrates the YouTube channel queue, persists pages, writes the files |
+| `content-yt-fetch.js` | Injected into the YouTube tab — reads the channel profile and pages through every video |
 | `offscreen.html` / `offscreen.js` | Turns the collected JSON into a downloadable blob URL (a service worker can't) |
 | `popup/` | The side panel UI (HTML/CSS/JS), loaded via `side_panel.default_path` |
 | `icons/` | Toolbar/notification icons |
