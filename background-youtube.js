@@ -764,6 +764,10 @@ async function handleYoutubeDone(msg) {
   if (!isLiveYoutubeReport(state, msg)) return { ok: false, abort: true };
 
   const capped = !!msg.capped;
+  // Zero videos is never reported as a clean finish — either the channel really has none
+  // or we failed to recognise them, and both deserve a visible flag rather than a file
+  // that says complete:true over an empty list.
+  const foundNothing = !!msg.foundNothing || !state.current.videosCount;
   const current = { ...state.current, capped };
   const withFlag = await setYoutubeState({
     current,
@@ -773,12 +777,17 @@ async function handleYoutubeDone(msg) {
       " complete — " +
       current.videosCount +
       " videos" +
-      (capped ? " (page cap lag gaya, poora nahi hai)" : ""),
+      (capped ? " (page cap lag gaya, poora nahi hai)" : "") +
+      (foundNothing ? " (ek bhi video nahi mila — YouTube ka layout badla ho sakta hai)" : ""),
   });
 
   const result = await saveChannelFile(withFlag, {
-    complete: !capped,
-    reason: capped ? "hard page cap reached" : null,
+    complete: !capped && !foundNothing,
+    reason: capped
+      ? "hard page cap reached"
+      : foundNothing
+        ? "no videos found — channel may be empty or YouTube changed its layout"
+        : null,
   });
 
   if (!result.ok) {
@@ -795,7 +804,10 @@ async function handleYoutubeDone(msg) {
   await setYoutubeState({ lastEvent: "Download: " + safeChannelFilename(current.channelKey) });
 
   const after = await getYoutubeState();
-  await advanceYoutubeChannel(after, { complete: !capped, reason: capped ? "capped" : null });
+  await advanceYoutubeChannel(after, {
+    complete: !capped && !foundNothing,
+    reason: capped ? "capped" : foundNothing ? "no videos found" : null,
+  });
   return { ok: true };
 }
 

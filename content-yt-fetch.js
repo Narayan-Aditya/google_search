@@ -29,6 +29,9 @@
     { kind: "video", label: "Videos", params: "EgZ2aWRlb3PyBgQKAjoA" },
     { kind: "live", label: "Live", params: "EgdzdHJlYW1z8gYECgJ6AA==" },
   ];
+  // The About panel is no longer part of the channel page on the newer layout; this asks
+  // for it directly.
+  const ABOUT_PARAMS = "EgVhYm91dPIGBAoCEgA=";
 
   const HARD_PAGE_CAP = 500; // runaway guard, ~15k videos
   const NETWORK_ATTEMPTS = 3;
@@ -37,10 +40,17 @@
   // without a cap a pathological shape could spin the page.
   const WALK_CAP = 400000;
 
-  // The renderers a long-form video arrives in. `shortsLockupViewModel` and
-  // `reelItemRenderer` — the two shapes a Short comes in — are intentionally absent, so a
-  // Shorts shelf embedded in another tab is walked straight past instead of collected.
-  const VIDEO_KEYS = new Set(["videoRenderer", "gridVideoRenderer", "playlistVideoRenderer"]);
+  // The renderers a long-form video arrives in. `lockupViewModel` is the newer shape
+  // YouTube is migrating channel grids to — it carries a contentType, which is what keeps
+  // Shorts and playlists out. `shortsLockupViewModel` and `reelItemRenderer` — the two
+  // legacy shapes a Short comes in — are intentionally absent, so a Shorts shelf embedded
+  // in another tab is walked straight past instead of collected.
+  const VIDEO_KEYS = new Set([
+    "videoRenderer",
+    "gridVideoRenderer",
+    "playlistVideoRenderer",
+    "lockupViewModel",
+  ]);
 
   const job = window.__YT_JOB__;
   if (!job || !job.channelKey) return; // seeded by the worker right before injection
@@ -165,6 +175,29 @@
       return node.runs.map((run) => (run && typeof run.text === "string" ? run.text : "")).join("");
     }
     if (node.accessibility) return String(deepFind(node, "label") || "");
+    return "";
+  }
+
+  // The newer view models stopped giving each fact its own key and now ship a flat list of
+  // display strings: a video's row is ["1.2M views", "2 days ago"], a channel header's is
+  // ["@handle", "2.5M subscribers", "412 videos"]. Callers pull what they want out by
+  // matching the label, which survives the parts being reordered or added to.
+  function metadataTexts(root) {
+    const out = [];
+    const rows = deepFind(root, "metadataRows");
+    if (!Array.isArray(rows)) return out;
+    for (const row of rows) {
+      const parts = row && Array.isArray(row.metadataParts) ? row.metadataParts : [];
+      for (const part of parts) {
+        const text = runsText(part && part.text);
+        if (text) out.push(text);
+      }
+    }
+    return out;
+  }
+
+  function pickText(texts, pattern) {
+    for (const text of texts) if (pattern.test(text)) return text;
     return "";
   }
 
@@ -575,6 +608,36 @@
     return null;
   }
 
+  // Fills the holes a header-only profile leaves, without overwriting anything the header
+  // already answered — the header's counts are the ones the channel page itself shows.
+  function mergeAboutPanel(profile, about) {
+    const fill = (field, value) => {
+      if (profile[field] == null || profile[field] === "") profile[field] = value;
+    };
+    const description = about.description;
+    if (typeof description === "string" && description.length > (profile.description || "").length) {
+      profile.description = description;
+    }
+    fill("joined_date", runsText(about.joinedDateText) || null);
+    fill("country", runsText(about.country) || null);
+    fill("canonical_url", absoluteUrl(about.canonicalChannelUrl) || null);
+
+    const counts = [
+      ["subscriber_count", "subscriber_count_text", "subscriber_count_exact", about.subscriberCountText],
+      ["video_count", "video_count_text", null, about.videoCountText],
+      ["view_count", "view_count_text", null, about.viewCountText],
+    ];
+    for (const [countField, textField, exactField, raw] of counts) {
+      const text = runsText(raw);
+      if (!text || profile[textField]) continue;
+      profile[textField] = text;
+      profile[countField] = parseCount(text);
+      if (exactField) profile[exactField] = !isAbbreviated(text);
+    }
+
+    if (!profile.links || !profile.links.length) profile.links = mapChannelLinks(about);
+  }
+
   function mapChannelProfile(data) {
     const meta = (data.metadata && data.metadata.channelMetadataRenderer) || {};
     const micro = (data.microformat && data.microformat.microformatDataRenderer) || {};
@@ -587,15 +650,24 @@
       channelId = CHANNEL_ID_RE.test(String(browseId || "")) ? browseId : channelId;
     }
 
+    // Three generations of header, newest last: the About panel (richest, but only present
+    // once it has been opened), the old c4TabbedHeaderRenderer keys, and the current
+    // pageHeaderRenderer, which has no per-fact keys at all — just a row of display
+    // strings that have to be told apart by their label.
+    const headerTexts = metadataTexts(header);
     const subscriberText =
-      runsText(about.subscriberCountText) || runsText(deepFind(header, "subscriberCountText"));
+      runsText(about.subscriberCountText) ||
+      runsText(deepFind(header, "subscriberCountText")) ||
+      pickText(headerTexts, /subscriber/i);
     const videoCountText =
-      runsText(about.videoCountText) || runsText(deepFind(header, "videosCountText"));
-    const viewCountText = runsText(about.viewCountText);
+      runsText(about.videoCountText) ||
+      runsText(deepFind(header, "videosCountText")) ||
+      pickText(headerTexts, /\bvideos?\b/i);
+    const viewCountText = runsText(about.viewCountText) || pickText(headerTexts, /views?\b/i);
 
     const canonical =
       about.canonicalChannelUrl || meta.vanityChannelUrl || meta.channelUrl || micro.urlCanonical;
-    let handle = runsText(deepFind(header, "channelHandleText")) || "";
+    let handle = runsText(deepFind(header, "channelHandleText")) || pickText(headerTexts, /^@/);
     if (!handle && typeof canonical === "string") {
       const match = canonical.match(/\/(@[^/?#]+)/);
       if (match) handle = match[1];
@@ -681,9 +753,82 @@
     return video;
   }
 
+  // YouTube's newer grid item. Everything it used to give its own key now lives either in
+  // a flat metadata row or behind a generic view-model wrapper, so this reads by shape
+  // rather than by path.
+  function mapLockup(node, kind) {
+    // Shorts and playlists ride in the very same wrapper and are told apart only here.
+    const contentType = String(node.contentType || "");
+    if (contentType && contentType.indexOf("VIDEO") === -1) return null;
+
+    const id = node.contentId || deepFind(node, "videoId");
+    if (!id) return null;
+
+    const video = emptyVideo(String(id), kind);
+    const meta = deepFind(node, "lockupMetadataViewModel");
+    video.title = runsText(meta && meta.title) || runsText(deepFind(node, "accessibilityText"));
+
+    video.thumbnails = thumbList(node.contentImage || node);
+    video.thumbnail_url = bestThumbUrl(video.thumbnails);
+
+    const texts = metadataTexts(node);
+    const viewText = pickText(texts, /views?\b/i);
+    if (viewText) {
+      video.view_count = parseCount(viewText);
+      video.view_count_text = viewText;
+      video.view_count_exact = !isAbbreviated(viewText);
+    }
+    const publishedText = pickText(texts, /ago\b|^(streamed|premiered)/i);
+    if (publishedText) video.published_text = publishedText;
+
+    // The duration sits in a thumbnail overlay badge, next to badges like "LIVE" — take
+    // the first one that actually looks like a running time.
+    for (const badge of deepCollect(node, new Set(["thumbnailBadgeViewModel"]))) {
+      const seconds = parseDuration(runsText(badge.value.text));
+      if (seconds != null) {
+        video.duration_text = runsText(badge.value.text);
+        video.duration_seconds = seconds;
+        break;
+      }
+    }
+    return video;
+  }
+
   function mapVideoNode(entry, kind) {
     if (!entry || !entry.value) return null;
+    if (entry.key === "lockupViewModel") return mapLockup(entry.value, kind);
     return mapStandardVideo(entry.value, kind);
+  }
+
+  // Names the item renderers a response actually used. Without this a layout change reads
+  // as a silent "0 videos"; with it the log says "lockupViewModel x30" and the fix is one
+  // line in VIDEO_KEYS.
+  function describeItems(data) {
+    const counts = new Map();
+    const queue = [data];
+    let head = 0;
+    let budget = WALK_CAP;
+    while (head < queue.length && budget-- > 0) {
+      const node = queue[head++];
+      if (!node || typeof node !== "object") continue;
+      if (Array.isArray(node)) {
+        for (const item of node) if (item && typeof item === "object") queue.push(item);
+        continue;
+      }
+      for (const key of Object.keys(node)) {
+        const value = node[key];
+        if (!value || typeof value !== "object") continue;
+        if (/(Renderer|ViewModel)$/.test(key) && (value.videoId || value.contentId)) {
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+        queue.push(value);
+      }
+    }
+    const names = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map((entry) => entry[0] + " x" + entry[1]);
+    return names.length ? names.join(", ") : "koi item renderer nahi mila";
   }
 
   function findContinuation(data) {
@@ -941,7 +1086,15 @@
         fresh.push(video);
       }
 
-      if (!nodes.length && banked === 0 && !continuation) return { status: "empty", pageIndex };
+      if (!nodes.length && banked === 0 && !continuation) {
+        // A tab with nothing in it is normal (no past streams). A tab whose items we simply
+        // failed to recognise looks identical from here — so say which renderers were
+        // actually in the response instead of reporting a silent zero.
+        await report("YT_NOTE", {
+          detail: tab.label + ": koi video nahi mila (" + describeItems(res.data) + ")",
+        });
+        return { status: "empty", pageIndex };
+      }
 
       let details = { status: "ok" };
       if (fresh.length && job.fetchDetails) {
@@ -1043,12 +1196,26 @@
         return;
       }
 
+      // Joined date, country and links only ever live in the About panel, and on the newer
+      // layout that panel is not in the channel page at all — it is fetched when opened.
+      // Ask for it explicitly when the profile still has holes.
+      if (!profile.joined_date || !profile.subscriber_count_text) {
+        const aboutRes = await postJson("browse", { browseId: channelId, params: ABOUT_PARAMS });
+        if (aboutRes.ok) {
+          const about = deepFind(aboutRes.data, "aboutChannelViewModel");
+          if (about) mergeAboutPanel(profile, about);
+        } else if (aboutRes.reason === "stopped") {
+          return;
+        }
+      }
+
       const ack = await report("YT_META", { channelId, profile, readable: true });
       if (!ack || ack.ok === false) return;
       if (!(await pacedSleep(jitter(job.pageDelayMs)))) return;
     }
 
     let capped = false;
+    let emptyTabs = 0;
     for (; tabIndex < CHANNEL_TABS.length; tabIndex++) {
       if (!isCurrent()) return;
 
@@ -1060,12 +1227,17 @@
       continuation = null; // only the resumed tab starts mid-way
 
       if (result.status === "stopped" || result.status === "failed") return;
+      if (result.status === "empty") emptyTabs += 1;
       if (result.status === "capped") {
         capped = true;
         break;
       }
     }
 
-    await report("YT_DONE", { capped });
+    // Collecting nothing at all is reported as such rather than as a clean finish. A file
+    // saying complete:true with an empty videos[] is the one outcome that looks like it
+    // worked when it did not.
+    const foundNothing = seen.size === 0 && emptyTabs === CHANNEL_TABS.length;
+    await report("YT_DONE", { capped, foundNothing });
   })();
 })();

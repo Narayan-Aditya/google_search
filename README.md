@@ -460,6 +460,7 @@ log. The side panel's own log (last 20 events) is the quicker read for
 | Mode 3 is very slow | Expected with details on — one extra request per video. Turn the details checkbox off for a listing-only run, or lower the per-video delay. |
 | Mode 3 videos have `null` likes/comments | Either details were off, or that video's `details_error` says why (removed, private, age-gated). |
 | Mode 3 pauses with "consent page" | YouTube showed its cookie consent interstitial. Accept it in that tab, then Resume. |
+| Mode 3 file has an empty `videos` list | It will say `complete: false` with `no videos found`. Check the side panel log — it names the renderer YouTube actually sent (e.g. `lockupViewModel x30`), which is the one line to add to `VIDEO_KEYS`. |
 
 **If Instagram changes its API.** These endpoints are undocumented and rotate.
 When all three fallbacks fail, find the current one yourself:
@@ -485,6 +486,16 @@ degrades to `null` instead of crashing. When something genuinely breaks:
 3. Update `CHANNEL_TABS` / `VIDEO_KEYS` at the top of `content-yt-fetch.js`, or the
    key names in `extractLikeCount` / `extractCommentCount` / `extractDescription`
    for a details-pass break, and reload the extension.
+
+You usually will not need step 1 and 2: when a tab yields nothing, the log already names
+the item renderers that were in the response, and a run that collected nothing is marked
+`complete: false` rather than quietly succeeding.
+
+Both of YouTube's current channel layouts are handled — the older `videoRenderer` grid
+with a `c4TabbedHeaderRenderer`, and the newer `lockupViewModel` grid with a
+`pageHeaderRenderer` whose counts are plain display strings. Channel facts that only the
+About panel holds (joined date, country, links) are fetched with a dedicated request when
+the channel page does not carry them.
 
 ---
 
