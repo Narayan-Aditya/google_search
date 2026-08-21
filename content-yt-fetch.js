@@ -21,9 +21,12 @@
 
   // Base64 `params` for the channel tabs, decoded (they travel inside a JSON body, so the
   // %3D padding seen in URLs must not be sent).
+  //
+  // Shorts are deliberately not crawled. The Shorts tab is its own feed with its own
+  // renderer, and nothing here wants it — see VIDEO_KEYS below, which also refuses a short
+  // that turns up inside another tab's response.
   const CHANNEL_TABS = [
     { kind: "video", label: "Videos", params: "EgZ2aWRlb3PyBgQKAjoA" },
-    { kind: "short", label: "Shorts", params: "EgZzaG9ydHPyBgUKA5oBAA==" },
     { kind: "live", label: "Live", params: "EgdzdHJlYW1z8gYECgJ6AA==" },
   ];
 
@@ -34,13 +37,10 @@
   // without a cap a pathological shape could spin the page.
   const WALK_CAP = 400000;
 
-  const VIDEO_KEYS = new Set([
-    "videoRenderer",
-    "gridVideoRenderer",
-    "playlistVideoRenderer",
-    "reelItemRenderer",
-    "shortsLockupViewModel",
-  ]);
+  // The renderers a long-form video arrives in. `shortsLockupViewModel` and
+  // `reelItemRenderer` — the two shapes a Short comes in — are intentionally absent, so a
+  // Shorts shelf embedded in another tab is walked straight past instead of collected.
+  const VIDEO_KEYS = new Set(["videoRenderer", "gridVideoRenderer", "playlistVideoRenderer"]);
 
   const job = window.__YT_JOB__;
   if (!job || !job.channelKey) return; // seeded by the worker right before injection
@@ -639,7 +639,6 @@
       id,
       url: watchUrl(id),
       kind,
-      is_short: kind === "short",
       title: "",
       description: null,
       thumbnail_url: null,
@@ -682,41 +681,8 @@
     return video;
   }
 
-  function mapShortsLockup(node, kind) {
-    const id = deepFind(node, "videoId");
-    if (!id) return null;
-    const video = emptyVideo(String(id), kind);
-    const overlay = node.overlayMetadata || {};
-    const viewText = runsText(overlay.secondaryText);
-
-    video.title = runsText(overlay.primaryText) || runsText(deepFind(node, "accessibilityText"));
-    video.thumbnails = thumbList(node.thumbnail);
-    video.thumbnail_url = bestThumbUrl(video.thumbnails);
-    video.view_count = parseCount(viewText);
-    video.view_count_text = viewText || null;
-    video.view_count_exact = viewText ? !isAbbreviated(viewText) : null;
-    return video;
-  }
-
-  function mapReelItem(node, kind) {
-    const id = node.videoId;
-    if (!id) return null;
-    const video = emptyVideo(String(id), kind);
-    const viewText = runsText(node.viewCountText);
-
-    video.title = runsText(node.headline);
-    video.thumbnails = thumbList(node.thumbnail);
-    video.thumbnail_url = bestThumbUrl(video.thumbnails);
-    video.view_count = parseCount(viewText);
-    video.view_count_text = viewText || null;
-    video.view_count_exact = viewText ? !isAbbreviated(viewText) : null;
-    return video;
-  }
-
   function mapVideoNode(entry, kind) {
     if (!entry || !entry.value) return null;
-    if (entry.key === "shortsLockupViewModel") return mapShortsLockup(entry.value, kind);
-    if (entry.key === "reelItemRenderer") return mapReelItem(entry.value, kind);
     return mapStandardVideo(entry.value, kind);
   }
 
@@ -957,7 +923,7 @@
             continue;
           }
           // A tab the channel does not have reads the same way on its first request. That
-          // is not a failure — it just has no shorts, or no past streams.
+          // is not a failure — the channel simply has no past live streams.
           if (!continuation) return { status: "empty", pageIndex };
         }
         await fail(res.reason, tab.label + ": " + res.detail, res.status);

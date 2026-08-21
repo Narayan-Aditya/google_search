@@ -271,7 +271,7 @@ account you don't follow gets a profile-only file and the run moves on, and a
 
 Same shape as mode 2, pointed at YouTube. You give it channels, it gives you one
 `<handle>.json` per channel containing the channel's profile and every video it
-publishes — long-form, Shorts and past live streams.
+publishes — regular uploads and past live streams. Shorts are deliberately skipped.
 
 ### How to use it
 
@@ -369,16 +369,14 @@ Deliberately the same envelope as mode 2, with `videos` where that one has
     "links": [{ "title": "Twitter", "display": "twitter.com/MKBHD", "url": "https://twitter.com/MKBHD" }]
   },
   "videos_count_reported": 1703,
-  "videos_collected": 1703,
+  "videos_collected": 1541,
   "videos": [
     {
       "id": "dQw4w9WgXcQ",
       "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "kind": "video",
-      "is_short": false,
       "title": "...",
-      "description": "full description
-with line breaks",
+      "description": "full description\nwith line breaks",
       "thumbnail_url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
       "thumbnails": [{ "url": "https://...", "width": 1280, "height": 720 }],
       "view_count": 1234567,
@@ -400,8 +398,15 @@ with line breaks",
 }
 ```
 
-- **`kind`** is `video`, `short` or `live` — the three channel tabs are crawled
-  in that order into one list, deduped by id (a past stream can appear twice).
+- **`kind`** is `video` or `live` — the Videos and Live tabs are crawled in that order
+  into one list, deduped by id (a past stream can appear in both). **Shorts are not
+  collected at all** — the Shorts tab is never requested, and a Shorts shelf appearing
+  inside another tab is skipped rather than mapped.
+- **`videos_count_reported` is YouTube's own channel total**, which counts Shorts. Since
+  Shorts are not collected, `videos_collected` is normally lower — that gap is expected
+  and does not make the file incomplete.
+- **`comment_count` is a plain number** (or `null` if comments are off/unreadable). No
+  comment text, authors or threads are fetched — only the count YouTube itself displays.
 - **`view_count_exact`** tells you whether the number is YouTube's exact figure
   or its rounded "1.2M". With details on it is exact; with details off it is not.
 - **`details_source`** is `next` (or `next+player`) for an enriched video and
@@ -410,7 +415,6 @@ with line breaks",
 - **`subscriber_count`** is parsed from YouTube's own rounded text — YouTube
   itself does not publish an exact subscriber number any more, hence
   `subscriber_count_exact: false`.
-- **`comment_count` is the number, not the comments** — same reasoning as mode 2.
 - **A stream that is live right now** reports watchers, not views, in the same field —
   those land in `live_viewers` with `is_live_now: true`, and `view_count` stays null
   rather than being quietly understated.

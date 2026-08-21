@@ -72,7 +72,7 @@ function defaultCurrentChannel(channelKey) {
     channelId: null,
     profile: null,
     cursor: null, // continuation token for the tab we are inside
-    tabIndex: 0, // 0 videos, 1 shorts, 2 live — mirrors CHANNEL_TABS in the content script
+    tabIndex: 0, // 0 videos, 1 live — mirrors CHANNEL_TABS in the content script
     tabLabel: "",
     moreAvailable: true,
     recentVideoIds: [],
