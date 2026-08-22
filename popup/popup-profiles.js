@@ -23,15 +23,17 @@
 
   // The mode switcher is shared UI and lives here, because this file was the one that
   // introduced it. Each feature still renders only its own dot.
-  const MODES = ["google", "profiles", "youtube"];
+  const MODES = ["google", "profiles", "youtube", "linkedin"];
   const modeButtons = {
     google: document.getElementById("modeGoogleBtn"),
     profiles: document.getElementById("modeProfilesBtn"),
     youtube: document.getElementById("modeYoutubeBtn"),
+    linkedin: document.getElementById("modeLinkedinBtn"),
   };
   const googleDot = document.getElementById("googleModeDot");
   const profileDot = document.getElementById("profileModeDot");
   const youtubeDot = document.getElementById("youtubeModeDot");
+  const linkedinDot = document.getElementById("linkedinModeDot");
 
   let accountsEdited = false;
   let settingsEdited = false;
@@ -338,13 +340,22 @@
     if (changes.youtubeRunState && changes.youtubeRunState.newValue) {
       renderModeDot(youtubeDot, changes.youtubeRunState.newValue.status);
     }
+    if (changes.linkedinRunState && changes.linkedinRunState.newValue) {
+      renderModeDot(linkedinDot, changes.linkedinRunState.newValue.status);
+    }
   });
 
   (async function init() {
-    const stored = await chrome.storage.local.get(["uiMode", "runState", "youtubeRunState"]);
+    const stored = await chrome.storage.local.get([
+      "uiMode",
+      "runState",
+      "youtubeRunState",
+      "linkedinRunState",
+    ]);
     applyMode(stored.uiMode);
     if (stored.runState) renderModeDot(googleDot, stored.runState.status);
     if (stored.youtubeRunState) renderModeDot(youtubeDot, stored.youtubeRunState.status);
+    if (stored.linkedinRunState) renderModeDot(linkedinDot, stored.linkedinRunState.status);
     render(await send({ type: "PROFILE_GET_STATE" }));
   })();
 })();

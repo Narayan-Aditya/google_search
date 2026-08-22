@@ -18,6 +18,9 @@
     <button id="modeYoutubeBtn" class="mode-btn" data-mode="youtube">
       YouTube channels <span id="youtubeModeDot" class="mode-dot hidden"></span>
     </button>
+    <button id="modeLinkedinBtn" class="mode-btn" data-mode="linkedin">
+      LinkedIn posts <span id="linkedinModeDot" class="mode-dot hidden"></span>
+    </button>
   </div>
 
   <!-- ============================ Google handle finder ============================ -->
@@ -169,8 +172,65 @@
     </p>
   </section>
 
+  <!-- ========================= LinkedIn search post exporter ========================= -->
+  <section id="linkedinSection">
+    <label for="liSearches">LinkedIn search URLs (ek per line)</label>
+    <textarea
+      id="liSearches"
+      rows="4"
+      placeholder="https://www.linkedin.com/search/results/content/?keywords=ai%20startup"
+    ></textarea>
+    <p class="hint">
+      Search results ka URL chahiye — LinkedIn pe search karke <b>Posts</b> tab kholo aur
+      address bar se URL copy karo. Profile/job/single-post links skip ho jayenge.
+    </p>
+
+    <div class="row">
+      <label for="liScrollDelay">Delay between scrolls (s)</label>
+      <input id="liScrollDelay" type="number" min="2" value="3" />
+    </div>
+    <div class="row">
+      <label for="liSearchDelay">Delay between searches (s)</label>
+      <input id="liSearchDelay" type="number" min="5" value="10" />
+    </div>
+    <div class="row">
+      <label for="liMaxPosts">Max posts per search (0 = no limit)</label>
+      <input id="liMaxPosts" type="number" min="0" step="50" value="300" />
+    </div>
+    <p id="liDelayWarning" class="warning hidden">Kam delay = jaldi search limit. 3s+ theek hai.</p>
+
+    <div class="actions">
+      <button id="liStartBtn">Start</button>
+      <button id="liStopBtn" class="hidden">Stop run</button>
+    </div>
+
+    <div id="liPauseBanner" class="banner hidden">
+      <p>Run pause ho gaya hai — neeche wajah dekho, phir Resume dabao.</p>
+      <p id="liPauseDetail" class="detail"></p>
+      <button id="liResumeBtn">Resume</button>
+    </div>
+
+    <div class="status">
+      <p id="liStatusLine">Idle</p>
+      <p id="liTotalsLine">Searches: 0/0 &middot; posts: 0</p>
+    </div>
+
+    <ul id="liCompleted" class="completed hidden"></ul>
+    <ul id="liLog"></ul>
+
+    <div class="actions">
+      <button id="liDownloadBtn" disabled>Download partial</button>
+      <button id="liResetBtn" class="danger">Reset</button>
+    </div>
+    <p class="hint">
+      Har search complete hote hi uska <code>linkedin-&lt;keywords&gt;.json</code> apne aap
+      download ho jata hai — side panel band ho tab bhi.
+    </p>
+  </section>
+
   <script src="popup.js"></script>
   <script src="popup-profiles.js"></script>
   <script src="popup-youtube.js"></script>
+  <script src="popup-linkedin.js"></script>
 </body>
 </html>

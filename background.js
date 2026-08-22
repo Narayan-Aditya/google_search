@@ -4,13 +4,13 @@
 // auto-retry on a block, or run hidden/parallel tabs. On a CAPTCHA/block the run
 // pauses and waits for the user to solve it manually, mirroring script.py's stance.
 
-// The Instagram profile/posts and YouTube channel/videos exporters are two more
-// independent job runners. They share this service worker but each keeps its own
-// storage key, tab, alarms and message namespace, so no feature can corrupt
-// another's run. Order matters: the YouTube runner reuses the offscreen download
-// helper that background-profiles.js defines.
+// The Instagram, YouTube and LinkedIn exporters are three more independent job runners.
+// They share this service worker but each keeps its own storage key, tab, alarms and
+// message namespace, so no feature can corrupt another's run. Order matters: the YouTube
+// and LinkedIn runners reuse the offscreen download helper background-profiles.js defines.
 importScripts("background-profiles.js");
 importScripts("background-youtube.js");
+importScripts("background-linkedin.js");
 
 const ALARM_NAME = "nextPage";
 

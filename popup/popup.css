@@ -101,7 +101,8 @@ button {
 
 #log,
 #igLog,
-#ytLog {
+#ytLog,
+#liLog {
   max-height: 120px;
   overflow-y: auto;
   border: 1px solid #ddd;
@@ -114,20 +115,23 @@ button {
 
 #log li,
 #igLog li,
-#ytLog li {
+#ytLog li,
+#liLog li {
   padding: 2px 0;
   border-bottom: 1px solid #f1f1f1;
 }
 
 #log li:last-child,
 #igLog li:last-child,
-#ytLog li:last-child {
+#ytLog li:last-child,
+#liLog li:last-child {
   border-bottom: none;
 }
 
 #downloadBtn,
 #igDownloadBtn,
-#ytDownloadBtn {
+#ytDownloadBtn,
+#liDownloadBtn {
   flex: 1;
 }
 
@@ -147,6 +151,7 @@ button {
 
 .modes {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   margin-bottom: 4px;
   border: 1px solid #dadce0;
@@ -160,8 +165,10 @@ button {
   border: none;
   background: #f1f3f4;
   font-family: inherit;
-  /* Three tabs in a narrow side panel — 11px keeps every label on one line. */
+  /* Four tabs in a narrow side panel: let them wrap to a second row rather than
+     squeezing the labels down to unreadable. */
   font-size: 11px;
+  min-width: 46%;
   color: #5f6368;
 }
 
@@ -191,13 +198,15 @@ button {
    show-one so a fourth mode never needs a new pair of rules per combination. */
 #googleSection,
 #profileSection,
-#youtubeSection {
+#youtubeSection,
+#linkedinSection {
   display: none;
 }
 
 body.mode-google #googleSection,
 body.mode-profiles #profileSection,
-body.mode-youtube #youtubeSection {
+body.mode-youtube #youtubeSection,
+body.mode-linkedin #linkedinSection {
   display: block;
 }
 

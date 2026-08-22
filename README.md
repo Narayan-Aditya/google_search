@@ -1,12 +1,13 @@
 # Insta Handle Finder
 
-Three tools in one side panel, switched with the tabs at the top:
+Four tools in one side panel, switched with the tabs at the top:
 
 | Mode | What it does |
 |---|---|
 | **Google handles** | Walks `site:instagram.com "<city>"` Google results and collects public profile handles. |
 | **Instagram profiles** | Takes profile URLs/handles and exports each account's full profile + every post to `<handle>.json`. |
 | **YouTube channels** | Takes channel URLs/@handles and exports each channel's full profile + every video to `<handle>.json`. |
+| **LinkedIn posts** | Takes a LinkedIn search-results URL and exports every post the search returns to `linkedin-<keywords>.json`. |
 
 They are independent — separate runs, separate tabs, separate saved state — so
 the natural workflow is to find handles in the first mode and feed them into the
@@ -45,6 +46,7 @@ isn't Google or Instagram — there is no backend, no telemetry, no account.
 | `https://www.google.com/*` | Mode 1 — read search results |
 | `https://www.instagram.com/*`, `https://instagram.com/*`, `https://i.instagram.com/*` | Mode 2 — open the profile and read its data as your logged-in session |
 | `https://www.youtube.com/*`, `https://youtube.com/*`, `https://m.youtube.com/*` | Mode 3 — open the channel and read its data as your logged-in session |
+| `https://www.linkedin.com/*`, `https://linkedin.com/*` | Mode 4 — open the search and read the results as your logged-in session |
 
 > After adding a new host permission, Chrome may show the extension as needing
 > re-enabling on the `chrome://extensions` card the first time. Toggle it off and
@@ -443,10 +445,144 @@ Deliberately the same envelope as mode 2, with `videos` where that one has
 
 ---
 
+## Mode 4 — LinkedIn posts (from a search URL)
+
+You give it a LinkedIn **search results** URL; it scrolls the result list to the end and
+writes every post it saw to one `linkedin-<keywords>.json`.
+
+### How to use it
+
+1. Log into LinkedIn in this Chrome profile.
+2. Search on LinkedIn, then click the **Posts** tab, and copy the URL from the address bar.
+   It looks like:
+
+   ```
+   https://www.linkedin.com/search/results/content/?keywords=ai%20startup
+   ```
+
+   Any filters you set on that page (date posted, sort order, author) are part of the URL,
+   so whatever the page shows is what gets exported.
+3. Open the side panel, switch to the **LinkedIn posts** tab, and paste the URL — one per
+   line if you want several searches in a row.
+
+   Also accepted: `/search/results/all/?keywords=…` (rewritten to the Posts tab, since
+   the "all" tab only ever shows a few posts) and hashtag feeds like
+   `/feed/hashtag/saas`. Profile, job-search and single-post links are **rejected** — the
+   panel tells you how many lines it skipped before it starts.
+4. Set the limits. Defaults are 3 s between scrolls, 10 s between searches, and **300 posts
+   per search** (set it to `0` for no limit).
+5. **Start**. A tab opens on the search and scrolls until LinkedIn stops adding results.
+
+### How it reads the page
+
+Unlike modes 2 and 3, this one reads the **rendered page** rather than a private JSON API.
+That is deliberate: LinkedIn's internal endpoints are gated behind ids that rotate
+constantly, while search results are an infinite scroll — scrolling is the native way to
+page through them, and the DOM is what you are already looking at.
+
+Posts are located three ways, in order, so a redesign has to break all four to stop the
+run:
+
+1. **By activity id** — every element whose attributes or link `href` carry a post id, in
+   either spelling LinkedIn uses: `urn:li:activity:123…` and the `…-activity-123…-AbCd`
+   segment inside a `/posts/` permalink. This runs first because it is the only method that
+   can see nesting: when a reshare's quoted post has an id and the outer card does not, a
+   plain selector would return the quoted post.
+2. **By selector** — the known wrapper class names, for speed on a familiar layout.
+3. **By structure** — the smallest element holding both an author block and a post body.
+4. **By repeated siblings** — the element whose children are all post-shaped, taken as the
+   result list. This needs no class name, no id and no attribute, and is what carries the
+   run on builds where LinkedIn ships hashed class names like `_8f294d25`.
+
+If all four come back empty, the run reports `no posts found` and the log dumps the shape
+of the results list (its class, its child count, the child's `data-` attributes, and whether
+a urn appears in the HTML at all) — which is what the next one-line fix is made from.
+
+Two consequences worth knowing:
+
+- **Truncated posts are expanded first.** LinkedIn only renders the first ~200 characters
+  until "…see more" is clicked, so each round clicks those open before reading, and `text`
+  is the full post rather than a preview.
+- **A reshare is one row, not two.** The quoted post nested inside it is skipped, and the
+  outer post is flagged `is_repost: true`.
+
+### When it pauses
+
+Same stance as every other mode: each wall becomes a resumable pause with a notification.
+
+| Reason | What to do |
+|---|---|
+| `login_wall` | Log into LinkedIn in that tab, then **Resume** |
+| `challenge` | Clear LinkedIn's verification in that tab, then **Resume** |
+| `rate_limit` | LinkedIn's search limit. The cool-down starts at 5 minutes and doubles up to an hour — wait it out, then **Resume** |
+| `wrong_origin` | LinkedIn bounced the tab elsewhere; **Resume** re-opens the search |
+
+Resume re-opens the search and skips everything already banked, so a resumed pass only
+adds what it did not already have.
+
+### Output format — `linkedin-<keywords>.json`
+
+```json
+{
+  "search_label": "creator requirements",
+  "search_url": "https://www.linkedin.com/search/results/content/?keywords=creator%20requirements",
+  "fetched_at": "2026-08-22T12:00:00.000Z",
+  "source": "dom",
+  "complete": true,
+  "incomplete_reason": null,
+  "max_posts": 300,
+  "scroll_rounds": 27,
+  "posts_collected": 268,
+  "posts": [
+    {
+      "author": {
+        "name": "Vivek Mehta",
+        "profile_url": "https://www.linkedin.com/in/vivek-mehta-89b38b415/",
+        "type": "person",
+        "discription": "CEO & Founder @ The Hidden Fox Co. | D2C, Influencer & Healthcare Marketing"
+      },
+      "posted_text": "3w •",
+      "text": "Looking for 7 Nano Tech Creators.\nRequirements:\n• 1K–10K followers"
+    }
+  ]
+}
+```
+
+- **`discription`** is the line LinkedIn shows directly under the author's name — their
+  profile headline. (Spelled as requested; renaming it to `description` is a one-line
+  change in `slimPost()`.)
+- **`author.type`** is `person`, `company` or `school`, taken from the profile URL.
+- **`text` keeps its line breaks.** Truncated posts are expanded before reading, so this
+  is the whole post and not the "…see more" preview.
+- **Anything unreadable is `null`, never guessed.** A headline is never borrowed from a
+  neighbouring card, and a card with no headline gets `null`.
+- **The scraper collects more than it exports.** Post ids, reaction/comment counts, media
+  URLs and permalinks are gathered and used internally — the id in particular is what
+  dedupes a post across scrolls and resumes — but the file stays narrow on purpose.
+  `slimPost()` in `background-linkedin.js` is the single place that decides the shape;
+  widening it back is one line per field.
+
+### Good to know / limits
+
+- **Nothing is evaded.** It scrolls the user's own logged-in tab, exactly as a person
+  would. No proxies, no spoofed user-agent, no hidden tabs, no auth-wall bypass.
+- **LinkedIn caps search results.** A content search stops producing new results well
+  before the total it claims; the run ends when scrolling stops adding posts, which is the
+  real end of what LinkedIn will serve.
+- **LinkedIn's terms restrict automated collection**, and posts are personal data — keep
+  the exports to what you actually need, and to what you are allowed to hold.
+- **Markup changes are visible, not silent.** If a redesign defeats all four strategies,
+  the run reports `no_results` with the shape of the page, and the fix is one entry in
+  `POST_SELECTORS` at the top of `content-li-fetch.js`.
+- **A post with no urn is still exported**, with a content-derived `id` so it still dedupes.
+  Losing a permalink beats losing the post.
+
+---
+
 ## Troubleshooting
 
 **Where to look first.** `chrome://extensions` → the extension's card →
-**Service worker** → *Inspect*. That console is where all three background scripts
+**Service worker** → *Inspect*. That console is where all four background scripts
 log. The side panel's own log (last 20 events) is the quicker read for
 "what just happened".
 
@@ -461,6 +597,9 @@ log. The side panel's own log (last 20 events) is the quicker read for
 | Mode 3 videos have `null` likes/comments | Either details were off, or that video's `details_error` says why (removed, private, age-gated). |
 | Mode 3 pauses with "consent page" | YouTube showed its cookie consent interstitial. Accept it in that tab, then Resume. |
 | Mode 3 file has an empty `videos` list | It will say `complete: false` with `no videos found`. Check the side panel log — it names the renderer YouTube actually sent (e.g. `lockupViewModel x30`), which is the one line to add to `VIDEO_KEYS`. |
+| Mode 4 stops after a few dozen posts | Usually the `Max posts` limit (default 300) or LinkedIn simply not serving more for that search. Check `posts_collected` vs the limit. |
+| Mode 4 posts all end in "…see more" | The see-more buttons did not get clicked — report it; the selector list is `SEE_MORE_SELECTORS` in `content-li-fetch.js`. |
+| Mode 4 file has an empty `posts` list | It says `complete: false` with `no posts found`. The log names the selectors that were on the page — that is the one line to fix in `POST_SELECTORS`. |
 
 **If Instagram changes its API.** These endpoints are undocumented and rotate.
 When all three fallbacks fail, find the current one yourself:
@@ -510,6 +649,8 @@ the channel page does not carry them.
 | `content-ig-fetch.js` | Injected into the Instagram tab — fetches the profile and pages through every post |
 | `background-youtube.js` | Service worker — orchestrates the YouTube channel queue, persists pages, writes the files |
 | `content-yt-fetch.js` | Injected into the YouTube tab — reads the channel profile and pages through every video |
+| `background-linkedin.js` | Service worker — orchestrates the LinkedIn search queue, persists batches, writes the files |
+| `content-li-fetch.js` | Injected into the LinkedIn tab — scrolls the search results and reads every post off the page |
 | `offscreen.html` / `offscreen.js` | Turns the collected JSON into a downloadable blob URL (a service worker can't) |
 | `popup/` | The side panel UI (HTML/CSS/JS), loaded via `side_panel.default_path` |
 | `icons/` | Toolbar/notification icons |
